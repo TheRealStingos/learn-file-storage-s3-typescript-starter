@@ -5,6 +5,7 @@ import type { ApiConfig } from "../config";
 import type { BunRequest } from "bun";
 import { BadRequestError, NotFoundError, UserForbiddenError } from "./errors";
 import { buffer } from "stream/consumers";
+import path from "path";
 
 type Thumbnail = {
   data: ArrayBuffer;
@@ -47,14 +48,20 @@ export async function handlerUploadThumbnail(cfg: ApiConfig, req: BunRequest) {
   const data = await image.arrayBuffer();
 
   const video = getVideo(cfg.db, videoId);
-  if (video?.userID != userID) {
+  if (!video) {
+    throw new BadRequestError("Video not found")
+  }
+  if (video.userID != userID) {
     throw new UserForbiddenError("You do not have permission");
   }
 
+  const filename = `${videoId}${type.split("/")[1]}`;
+  const filePath = path.join(cfg.assetsRoot, filename)
+  await Bun.write(filePath, data);
 
-  const baseData = Buffer.from(data).toString("base64")
 
-  const dataUrl = `data:${type};base64,${baseData}`
+
+  const dataUrl = `http://localhost:${cfg.port}/assets/${filename}`
 
 
   video.thumbnailURL = dataUrl
