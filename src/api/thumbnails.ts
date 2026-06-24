@@ -6,6 +6,7 @@ import type { BunRequest } from "bun";
 import { BadRequestError, NotFoundError, UserForbiddenError } from "./errors";
 import { buffer } from "stream/consumers";
 import path from "path";
+import { randomBytes } from "crypto";
 
 type Thumbnail = {
   data: ArrayBuffer;
@@ -55,7 +56,8 @@ export async function handlerUploadThumbnail(cfg: ApiConfig, req: BunRequest) {
     throw new UserForbiddenError("You do not have permission");
   }
 
-  const filename = `${videoId}${type.split("/")[1]}`;
+
+  const filename = `${randomBytes(32).toString("base64url")}.${type.split("/")[1]}`;
   const filePath = path.join(cfg.assetsRoot, filename)
   await Bun.write(filePath, data);
 
