@@ -1,15 +1,12 @@
 import { respondWithJSON } from "./json";
 import { getBearerToken, validateJWT } from "../auth";
 import { type ApiConfig } from "../config";
-import { S3Client, type BunRequest } from "bun";
+import { type BunRequest } from "bun";
 import { BadRequestError } from "./errors";
 import { getVideo, updateVideo } from "../db/videos";
-import { cfg } from "../config";
 import { UserForbiddenError } from "./errors";
 import { unlink } from "fs/promises"
-import { off } from "process";
-import { json } from "stream/consumers";
-import { parse } from "path";
+import { type Video } from "../db/videos";
 
 
 export async function handlerUploadVideo(cfg: ApiConfig, req: BunRequest) {
@@ -46,8 +43,10 @@ export async function handlerUploadVideo(cfg: ApiConfig, req: BunRequest) {
   const file = Bun.file(tempPath);
   const aspectRatio = await getVideoAspectRatio(tempPath);
   const processedVideo = await processVideoForFastStart(tempPath)
-  await cfg.s3Client.file(`${aspectRatio}/${videoId}.mp4`).write(Bun.file(processedVideo), { type: "video/mp4" });
-  video.videoURL = `https://tubely-170196.s3.us-east-2.amazonaws.com/${aspectRatio}/${videoId}.mp4`
+  const key = `${aspectRatio}/${videoId}.mp4`;
+  const s3file = cfg.s3Client.file(key, { bucket: cfg.s3Bucket });
+  await s3file.write(Bun.file(processedVideo), { type: "video/mp4" })
+  video.videoURL = `${cfg.s3CfDistribution}/${key}`
   updateVideo(cfg.db, video)
   await Promise.all([
     unlink(tempPath),
